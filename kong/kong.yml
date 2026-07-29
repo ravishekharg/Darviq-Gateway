@@ -1,0 +1,151 @@
+_format_version: "3.0"
+_transform: true
+
+# Kong runs in DB-less / declarative mode: this file IS the gateway config.
+# There is no Postgres/Cassandra dependency for Kong itself, no Admin API
+# writes required to reproduce a deployment, and the entire routing/plugin
+# topology is reviewable in a single pull request. To change a route or
+# plugin, edit this file and restart/reload Kong - that's the whole
+# workflow (GitOps-friendly by construction).
+#
+# Reload after editing (container already running):
+#   docker compose exec kong kong reload
+
+###############################################################################
+# Services & Routes
+###############################################################################
+
+services:
+  # ---------------------------------------------------------------------
+  # users-service - protected by key-auth (demonstrates authenticated
+  # routes). Reached via https://<gateway>/api/users
+  # ---------------------------------------------------------------------
+  - name: users-service
+    url: http://users-service:3001
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    routes:
+      - name: users-route
+        paths:
+          - /api/users
+        strip_path: true
+        methods:
+          - GET
+        plugins:
+          - name: key-auth
+            config:
+              key_names:
+                - apikey
+              hide_credentials: true
+          - name: rate-limiting
+            config:
+              minute: 20
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
+
+  # ---------------------------------------------------------------------
+  # orders-service - open route (no auth) but tightly rate-limited so the
+  # README curl walkthrough can trip a 429 in a handful of requests.
+  # ---------------------------------------------------------------------
+  - name: orders-service
+    url: http://orders-service:3002
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    routes:
+      - name: orders-route
+        paths:
+          - /api/orders
+        strip_path: true
+        methods:
+          - GET
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 5
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
+
+  # ---------------------------------------------------------------------
+  # reports-service - includes the intentionally slow /reports/slow
+  # endpoint. Short upstream timeouts here demonstrate Kong returning a
+  # 504 independently of whatever timeout Nginx or a client sets.
+  # ---------------------------------------------------------------------
+  - name: reports-service
+    url: http://reports-service:8000
+    connect_timeout: 2000
+    read_timeout: 3000
+    write_timeout: 3000
+    routes:
+      - name: reports-route
+        paths:
+          - /api/reports
+        strip_path: true
+        methods:
+          - GET
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
+
+###############################################################################
+# Consumers - demo-only. Rotate/replace before any real deployment.
+###############################################################################
+
+consumers:
+  - username: demo-consumer
+    keyauth_credentials:
+      # Placeholder demo key ONLY - not a real secret, safe to commit.
+      # Generate a real one for actual use: `openssl rand -hex 24`
+      - key: demo-key-CHANGE-ME-6f3a9c1d
+
+###############################################################################
+# Global plugins - apply to every request that reaches Kong, regardless
+# of route.
+###############################################################################
+
+plugins:
+  # CORS: permissive for the demo (any origin) - deliberately called out in
+  # the README as something to scope down to a real allow-list before
+  # production use.
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - OPTIONS
+      headers:
+        - Accept
+        - Content-Type
+        - apikey
+      exposed_headers:
+        - X-Upstream-Service
+        - X-RateLimit-Remaining-Minute
+      credentials: false
+      max_age: 3600
+
+  # Structured access logging for every request Kong proxies, written to
+  # stdout so `docker compose logs kong` shows it - no external log
+  # aggregator required for the demo. In a real deployment this is where
+  # you'd point at http-log/syslog/a log shipper instead.
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: false
+
+  # Adds a unique X-Kong-Request-Id per request end-to-end, and adds
+  # X-Kong-Upstream-Latency / X-Kong-Proxy-Latency response headers -
+  # useful for tracing a single request through Nginx -> Kong -> upstream.
+  - name: correlation-id
+    config:
+      header_name: X-Kong-Request-Id
+      generator: uuid
+      echo_downstream: true

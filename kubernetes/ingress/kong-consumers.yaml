@@ -1,0 +1,29 @@
+# Kubernetes-native equivalent of kong.yml's `consumers:` block.
+#
+# DEMO CREDENTIAL ONLY - this is the same placeholder key used in
+# kong/kong.yml (demo-key-CHANGE-ME-6f3a9c1d), committed deliberately as
+# an obvious, labeled placeholder. Generate a real key
+# (`openssl rand -hex 24`) and manage it as a real Secret (sealed-secrets,
+# External Secrets Operator, etc.) - never plain YAML - before using this
+# in any environment that matters.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-consumer-apikey
+  namespace: gateway-demo
+  labels:
+    konghq.com/credential: key-auth
+type: Opaque
+stringData:
+  key: demo-key-CHANGE-ME-6f3a9c1d
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: demo-consumer
+  namespace: gateway-demo
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: demo-consumer
+credentials:
+  - demo-consumer-apikey

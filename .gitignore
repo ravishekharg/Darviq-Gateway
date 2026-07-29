@@ -1,0 +1,42 @@
+# Secrets / environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.csr
+id_rsa*
+id_ed25519*
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# TLS certs are generated locally by scripts/generate-certs.sh, never committed
+nginx/certs/*
+!nginx/certs/.gitkeep
+
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json.bak
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker / compose local overrides
+docker-compose.override.yml
+
+# Logs
+*.log

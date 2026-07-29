@@ -1,0 +1,79 @@
+# Values for the official Kong Helm chart (https://charts.konghq.com),
+# deploying Kong Gateway + Kong Ingress Controller (KIC) as the production
+# target alternative to the docker-compose path.
+#
+# In this topology, Kong Ingress Controller watches standard Kubernetes
+# Ingress resources plus KongPlugin/KongConsumer CRDs (see
+# ../ingress/ingress.yaml) and configures the Kong Gateway data plane
+# accordingly - there is no kong.yml file to mount here, the cluster's
+# Ingress/CRD objects ARE the declarative config, watched and applied
+# continuously by the controller. Kong still runs DB-less
+# (env.database: "off"): KIC keeps the in-memory config in sync, so there
+# is still no Postgres dependency in this path either.
+#
+# Install:
+#   helm repo add kong https://charts.konghq.com
+#   helm repo update
+#   kubectl apply -f ../namespace.yaml
+#   helm install kong kong/kong \
+#     --namespace gateway-demo \
+#     -f helm-values.yaml
+#
+# This file is a real, valid values override for that chart - it has not
+# been applied against a live cluster as part of building this repo (no
+# cluster was available), so treat it as a reviewed starting point and
+# validate with `helm template` / `helm install --dry-run` against your
+# target chart version before relying on it.
+
+image:
+  repository: kong
+  tag: "3.7"
+
+env:
+  database: "off"
+  # Kong's own access/error logs to stdout/stderr, consistent with the
+  # docker-compose path's file-log plugin approach - both end up visible
+  # via `kubectl logs`.
+  proxy_access_log: /dev/stdout
+  proxy_error_log: /dev/stderr
+  admin_access_log: /dev/stdout
+  admin_error_log: /dev/stderr
+
+# Kong Gateway does not need its own Postgres - see env.database above.
+postgresql:
+  enabled: false
+
+ingressController:
+  enabled: true
+  installCRDs: false # cluster-scoped CRDs are typically installed once, separately
+  ingressClass: kong
+
+admin:
+  enabled: true
+  type: ClusterIP # never expose the Admin API outside the cluster network
+  http:
+    enabled: true
+
+proxy:
+  enabled: true
+  type: LoadBalancer # cloud provider provisions an external LB; use ClusterIP + your own Ingress/LB otherwise
+  http:
+    enabled: true
+    servicePort: 80
+  tls:
+    enabled: true
+    servicePort: 443
+    # Real production TLS: reference a Secret populated by cert-manager
+    # (see ../cert-manager/cluster-issuer.yaml) instead of terminating
+    # with a self-signed cert here. Uncomment once that Secret exists:
+    # secretName: kong-proxy-tls
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+replicaCount: 2

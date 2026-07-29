@@ -1,0 +1,71 @@
+# Deployment + Service for users-service in the gateway-demo namespace.
+#
+# Image: build and push services/users-service using its Dockerfile, e.g.
+#   docker build -t <your-registry>/kong-nginx-gateway-users-service:1.0.0 services/users-service
+#   docker push <your-registry>/kong-nginx-gateway-users-service:1.0.0
+# then set `image:` below accordingly. The placeholder registry path is
+# NOT a real, pushed image - replace it before applying this manifest.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-service
+  namespace: gateway-demo
+  labels:
+    app: users-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: users-service
+  template:
+    metadata:
+      labels:
+        app: users-service
+    spec:
+      containers:
+        - name: users-service
+          image: REPLACE_ME_REGISTRY/kong-nginx-gateway-users-service:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+              name: http
+          env:
+            - name: PORT
+              value: "3001"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-service
+  namespace: gateway-demo
+spec:
+  selector:
+    app: users-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: http

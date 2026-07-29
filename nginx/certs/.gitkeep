@@ -1,0 +1,5 @@
+This directory holds locally-generated TLS certificates (gateway.crt / gateway.key).
+
+They are intentionally NOT committed - run scripts/generate-certs.sh to create
+them before starting docker compose. See the README's "TLS certificates"
+section.

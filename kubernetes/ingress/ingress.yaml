@@ -1,0 +1,71 @@
+# Ingress resources for the three sample backend services, routed through
+# Kong Ingress Controller. Same path layout as the docker-compose/Nginx
+# path (/api/users, /api/orders, /api/reports) so the routing story is
+# consistent between both deployment targets.
+#
+# The `konghq.com/plugins` annotation attaches the KongPlugin objects
+# defined in kong-plugins.yaml to that specific Ingress's routes; cors,
+# file-log and correlation-id apply everywhere already via
+# KongClusterPlugin (global: "true"), so they are not repeated here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: users-service
+  namespace: gateway-demo
+  annotations:
+    konghq.com/strip-path: "true"
+    konghq.com/plugins: key-auth-users,rate-limiting-users
+spec:
+  ingressClassName: kong
+  rules:
+    - http:
+        paths:
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: users-service
+                port:
+                  number: 3001
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orders-service
+  namespace: gateway-demo
+  annotations:
+    konghq.com/strip-path: "true"
+    konghq.com/plugins: rate-limiting-orders
+spec:
+  ingressClassName: kong
+  rules:
+    - http:
+        paths:
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: orders-service
+                port:
+                  number: 3002
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: reports-service
+  namespace: gateway-demo
+  annotations:
+    konghq.com/strip-path: "true"
+    konghq.com/plugins: rate-limiting-reports
+spec:
+  ingressClassName: kong
+  rules:
+    - http:
+        paths:
+          - path: /api/reports
+            pathType: Prefix
+            backend:
+              service:
+                name: reports-service
+                port:
+                  number: 8000

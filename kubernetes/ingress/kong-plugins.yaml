@@ -1,0 +1,101 @@
+# KongPlugin/KongClusterPlugin CRDs - the Kubernetes-native equivalent of
+# the `plugins:` blocks in kong/kong.yml. Kong Ingress Controller reads
+# these and configures the Kong data plane; there is no separate config
+# file to edit for the k8s path.
+#
+# Route-scoped plugins (attached to a specific Ingress via the
+# `konghq.com/plugins` annotation - see ingress.yaml):
+
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: key-auth-users
+  namespace: gateway-demo
+plugin: key-auth
+config:
+  key_names:
+    - apikey
+  hide_credentials: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-users
+  namespace: gateway-demo
+plugin: rate-limiting
+config:
+  minute: 20
+  policy: local
+  fault_tolerant: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-orders
+  namespace: gateway-demo
+plugin: rate-limiting
+config:
+  minute: 5
+  policy: local
+  fault_tolerant: true
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting-reports
+  namespace: gateway-demo
+plugin: rate-limiting
+config:
+  minute: 10
+  policy: local
+  fault_tolerant: true
+---
+# Cluster-scoped plugins - the `global: "true"` annotation makes these
+# apply to every route through this Kong install, mirroring the top-level
+# `plugins:` list (cors, file-log, correlation-id) in kong/kong.yml.
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: cors-global
+  labels:
+    global: "true"
+plugin: cors
+config:
+  origins:
+    - "*"
+  methods:
+    - GET
+    - POST
+    - OPTIONS
+  headers:
+    - Accept
+    - Content-Type
+    - apikey
+  exposed_headers:
+    - X-Upstream-Service
+    - X-RateLimit-Remaining-Minute
+  credentials: false
+  max_age: 3600
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: file-log-global
+  labels:
+    global: "true"
+plugin: file-log
+config:
+  path: /dev/stdout
+  reopen: false
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: correlation-id-global
+  labels:
+    global: "true"
+plugin: correlation-id
+config:
+  header_name: X-Kong-Request-Id
+  generator: uuid
+  echo_downstream: true
