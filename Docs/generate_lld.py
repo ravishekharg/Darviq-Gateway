@@ -14,7 +14,7 @@ doc = DesignDoc(
     doc_kind="Low-Level Design (LLD)",
     version="1.0",
     date="July 31, 2026",
-    status="Draft for review",
+    status="Version 1.0",
 )
 
 doc.add_document_control()
